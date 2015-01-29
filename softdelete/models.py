@@ -42,7 +42,7 @@ class SoftDeleteQuerySet(query.QuerySet):
         qs = super(SoftDeleteQuerySet, self).all()
         qs.__class__ = SoftDeleteQuerySet
         return qs
-    
+
     def delete(self, using='default', *args, **kwargs):
         if not len(self):
             return
@@ -53,7 +53,7 @@ class SoftDeleteQuerySet(query.QuerySet):
                                                            content_type=ContentType.objects.get_for_model(obj),
                                                            object_id=obj.pk)
             logging.debug(" -----  CALLING delete() on %s" % obj)
-            obj.delete(using, *args, **kwargs)        
+            obj.delete(using, *args, **kwargs)
 
 
     def undelete(self, using='default', *args, **kwargs):
@@ -64,21 +64,21 @@ class SoftDeleteQuerySet(query.QuerySet):
         logging.debug("FINISHED UNDELETING %s" %self)
 
 class SoftDeleteManager(models.Manager):
-    def get_query_set(self):
-        qs = super(SoftDeleteManager,self).get_query_set().filter(deleted_at__isnull=1)
+    def get_queryset(self):
+        qs = super(SoftDeleteManager,self).get_queryset().filter(deleted_at__isnull=1)
         qs.__class__ = SoftDeleteQuerySet
         return qs
 
     def all_with_deleted(self, prt=False):
         if hasattr(self, 'core_filters'): # it's a RelatedManager
-            qs = super(SoftDeleteManager, self).get_query_set().filter(**self.core_filters)
+            qs = super(SoftDeleteManager, self).get_queryset().filter(**self.core_filters)
         else:
-            qs = super(SoftDeleteManager, self).get_query_set()
+            qs = super(SoftDeleteManager, self).get_queryset()
         qs.__class__ = SoftDeleteQuerySet
         return qs
 
     def deleted_set(self):
-        qs = super(SoftDeleteManager, self).get_query_set().filter(deleted_at__isnull=0)
+        qs = super(SoftDeleteManager, self).get_queryset().filter(deleted_at__isnull=0)
         qs.__class__ = SoftDeleteQuerySet
         return qs
 
@@ -89,7 +89,7 @@ class SoftDeleteManager(models.Manager):
         if 'pk' in kwargs:
             qs = self.all_with_deleted().filter(*args, **kwargs)
         else:
-            qs = self.get_query_set().filter(*args, **kwargs)
+            qs = self.get_queryset().filter(*args, **kwargs)
         qs.__class__ = SoftDeleteQuerySet
         return qs
 
@@ -101,7 +101,7 @@ class SoftDeleteObject(models.Model):
         permissions = (
             ('can_undelete', 'Can undelete this object'),
             )
-        
+
     def __init__(self, *args, **kwargs):
         super(SoftDeleteObject, self).__init__(*args, **kwargs)
         self.__dirty = False
@@ -122,11 +122,11 @@ class SoftDeleteObject(models.Model):
 
     def _do_delete(self, changeset, related):
         rel = related.get_accessor_name()
-        
+
         # Sometimes there is nothing to delete
         if not hasattr(self, rel):
             return
-        
+
         try:
             getattr(self, rel).all().delete(changeset=changeset)
         except:
@@ -147,7 +147,7 @@ class SoftDeleteObject(models.Model):
                 cs.delete()
                 super(SoftDeleteObject, self).delete(*args, **kwargs)
             except:
-                try:    
+                try:
                     cs = kwargs.get('changeset') or _determine_change_set(self)
                     rs = SoftDeleteRecord.objects.get(changeset=cs,
                                                       content_type=ContentType.objects.get_for_model(self),
@@ -161,8 +161,8 @@ class SoftDeleteObject(models.Model):
                     pass
         else:
             using = kwargs.get('using', settings.DATABASES['default'])
-            models.signals.pre_delete.send(sender=self.__class__, 
-                                           instance=self, 
+            models.signals.pre_delete.send(sender=self.__class__,
+                                           instance=self,
                                            using=using)
             pre_soft_delete.send(sender=self.__class__,
                                  instance=self,
@@ -177,8 +177,8 @@ class SoftDeleteObject(models.Model):
             for x in self._meta.get_all_related_objects():
                 self._do_delete(cs, x)
             logging.debug("FINISHED SOFT DELETING RELATED %s" % self)
-            models.signals.post_delete.send(sender=self.__class__, 
-                                            instance=self, 
+            models.signals.post_delete.send(sender=self.__class__,
+                                            instance=self,
                                             using=using)
             post_soft_delete.send(sender=self.__class__,
                                   instance=self,
@@ -252,7 +252,7 @@ class SoftDeleteRecord(models.Model):
 
     def set_content(self, obj):
         self.record = obj
-    
+
     def undelete(self, using='default'):
         self.content._do_undelete(using)
 
@@ -279,7 +279,7 @@ def assign_permissions(user_or_group):
                            'can_undelete']:
             for perm_obj in Permission.objects.filter(codename=permission):
                 permissions.append(perm_obj)
-        perm_list = getattr(user_or_group, 'permissions', 
+        perm_list = getattr(user_or_group, 'permissions',
                             getattr(user_or_group, 'user_permissions'))
         [perm_list.add(x) for x in permissions]
         user_or_group.save()
